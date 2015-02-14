@@ -1,0 +1,349 @@
+#include<iostream>
+#include<cstdio>
+#include<cstdlib>
+#include<climits>
+#include<mpi.h>
+#include<cmath>
+using namespace std;
+
+#define SEND_TAG 998
+#define RET_TAG  998
+
+int** memdec(int n){
+	int i;
+	int **a=new int*[n];
+	for(i=0;i<n;i++){
+		a[i]=new int[n];
+	}
+	return a;
+}
+
+void printmatrix(int **mat,int n){
+	int i,j;
+	for(i=0;i<n;i++){
+		for(j=0;j<n;j++){
+			cout<<mat[i][j]<<" ";
+		}
+		cout<<"\n";
+	}
+	cout<<"\n";
+}
+
+void printbuffer(int *buff,int n){
+	int i;
+	for(i=0;i<n*n;i++){
+		if(i%10==0){
+			cout<<"\n";				
+		}
+		cout<<buff[i]<<" ";
+	}
+	cout<<"\n";
+}
+
+void printvector(int *b,int n){
+	int i;
+	for(i=0;i<n;i++){
+		cout<<b[i]<<" ";
+	}
+	cout<<"\n";
+}
+
+void genmatrix(int **mat,int n){
+	int i,j;
+	for(i=0;i<n;i++){
+		for(j=0;j<n;j++){
+			mat[i][j]=rand()%10+1;
+		}
+	}
+}
+
+void genvector(int *b,int n){
+	int i;
+	for(i=0;i<n;i++){
+		b[i]=rand()%10+1;
+	}
+}
+
+int** serial_multiply(int **a,int **b,int n){
+	int i,j,k,sum;
+	int **c;
+	c=memdec(n);
+	for(i=0;i<n;i++){
+		for(j=0;j<n;j++){
+			sum=0;
+			for(k=0;k<n;k++){
+				sum+=a[i][k]*b[k][j];
+			}
+			c[i][j]=sum;
+		}
+	}
+	return c;
+}
+
+void scatter_matrix(int *buff, int *local, int process,int n, int col, int rank,int nprocs){
+
+	int i,j;
+	int sizes[2]= {n, n};
+    int subsizes[2]= {col, col}; 
+    int starts[2]= {0,0};  
+    MPI_Datatype type, subarrtype;
+    MPI_Type_create_subarray(2, sizes, subsizes, starts, MPI_ORDER_C, MPI_INT, &type);
+    MPI_Type_create_resized(type, 0, col*sizeof(int), &subarrtype);
+    MPI_Type_commit(&subarrtype);
+
+	int *sendcnt = new int[nprocs];
+	int *disp = new int[nprocs]; 
+
+	if(rank==0){
+		for(i=0;i<nprocs;i++){
+			sendcnt[i]=1;
+		}
+		int d=0;
+		for(i=0;i<process;i++){
+			for(j=0;j<process;j++){
+				disp[i*process+j]=d;
+				d+=1;
+			}
+			d+=(col-1)*process;
+		}
+	}
+
+    MPI_Scatterv(buff, sendcnt, disp, subarrtype, local, col*col, MPI_INT, 0, MPI_COMM_WORLD);
+}
+
+void initial_leftshift(int *local,int *recv_buff, int process, int col, int cords[2], int row_rank, MPI_Comm row_comm){
+
+	int left = cords[1] - cords[0];
+	if(left < 0){
+		left = left + process;
+	}
+	int left_tag = (cords[0] * process) + left;
+	int right = (cords[1] + cords[0]) % process;
+	int right_tag = (cords[0] * process) + cords[1];
+	MPI_Status status;
+	if(cords[0] > 0){
+		MPI_Send(local, col*col, MPI_INT, left, left_tag, row_comm);
+		MPI_Recv(recv_buff, col*col, MPI_INT, right, right_tag, row_comm, &status);
+		int *temp;
+		temp=recv_buff;
+		recv_buff=local;
+		local=temp;
+	}
+}
+
+void initial_upshift(int *local,int *recv_buff, int process, int col, int cords[2], int col_rank, MPI_Comm col_comm){
+
+	int up = cords[0] - cords[1];
+	if(up < 0){
+		up = up + process;
+	}
+	int up_tag = up * process + cords[1];
+	int down = (cords[1] + cords[0]) % process;
+	int down_tag = cords[0] * process + cords[1]; 
+	MPI_Status status;
+	if(cords[1] > 0){
+		MPI_Send(local, col*col, MPI_INT, up, up_tag, col_comm);
+		MPI_Recv(recv_buff, col*col, MPI_INT, down, down_tag, col_comm, &status);
+		MPI_Barrier(col_comm);
+		int *temp;
+		temp=recv_buff;
+		recv_buff=local;
+		local=temp;
+	}
+}
+
+void leftshift(int *local, int process, int col, int cords[2], int row_rank, MPI_Comm row_comm){
+
+	int left = cords[1] - 1;
+	if(left < 0){
+		left = left + process;
+	}
+	int left_tag = (cords[0] * process) + left;
+	int right = (cords[1] + 1) % process;
+	int right_tag = (cords[0] * process) + cords[1];
+	MPI_Status status;
+	MPI_Send(local, col*col, MPI_INT, left, left_tag, row_comm);
+	MPI_Barrier(row_comm);
+	MPI_Recv(local, col*col, MPI_INT, right, right_tag, row_comm, &status);
+}
+
+void upshift(int *local, int process, int col, int cords[2], int col_rank, MPI_Comm col_comm){
+
+	int up = cords[0] - 1;
+	if(up < 0){
+		up = up + process;
+	}
+	int up_tag = up * process + cords[1];
+	int down = (cords[0] + 1) % process;
+	int down_tag = cords[0] * process + cords[1]; 
+	MPI_Status status;
+	MPI_Send(local, col*col, MPI_INT, up, up_tag, col_comm);
+	MPI_Recv(local, col*col, MPI_INT, down, down_tag, col_comm, &status);
+
+}
+
+void multiply(int *local_a, int *local_b, int *c, int col){
+
+	int i,j,k,temp;
+	for(i=0;i<col;i++){
+		for(j=0;j<col;j++){
+			temp=0;
+			for(k=0;k<col;k++){
+				temp += local_a[i*col+k] * local_b[k*col+j];
+			}
+			c[i*col+j] += temp;
+		}
+	}			
+}
+
+void copy(int *partial, int **a, int col, int pos, int process){
+	
+	int i,j,k=0;
+	int row_disp = pos / process;
+	int col_disp = pos % process;
+	row_disp = row_disp * col;
+	col_disp = col_disp * col; 
+	for(i=row_disp; i<row_disp+col; i++){
+		for(j=col_disp; j<col_disp+col; j++){
+			a[i][j] = partial[k];
+			k++;
+		}
+	}
+}
+
+void data_accumulation(int *partial, int col, int **a, int myrank, int process,int nprocs){
+	
+	int i;
+	MPI_Status status;
+	if(myrank==0){
+		copy(partial, a, col, 0, process);
+		for(i=1;i<nprocs;i++){
+			MPI_Recv(partial, col*col, MPI_INT, i, RET_TAG, MPI_COMM_WORLD, &status);
+			copy(partial, a, col, i, process);
+		}
+	}
+	else{
+		MPI_Send(partial, col*col, MPI_INT, 0, RET_TAG, MPI_COMM_WORLD);
+	}
+}	
+
+int main(int argc, char **argv){
+	int myrank, nprocs, col_rank, row_rank, color;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+	//printf("Hello form %d of %d \n",myrank,nprocs);
+
+	int dims=2;
+	int size[2];
+	int periodic[2];
+	int cords[2];
+	MPI_Comm grid_comm, col_comm, row_comm;
+	size[0]=0;
+	size[1]=0;
+	periodic[0]=0;
+	periodic[1]=0;
+	MPI_Dims_create(nprocs, dims, size);
+	MPI_Cart_create(MPI_COMM_WORLD, dims, size, periodic, 1, &grid_comm);
+
+	MPI_Cart_coords(grid_comm, myrank, dims, cords);	
+		
+	MPI_Comm_split(grid_comm, cords[1], cords[0], &col_comm);
+	MPI_Comm_split(grid_comm, cords[0], cords[1], &row_comm);
+
+	MPI_Comm_rank(col_comm, &col_rank);
+	MPI_Comm_rank(row_comm, &row_rank);
+
+	int n=100,i,j,temp;
+	int **mat_a, **mat_b, **mat_c;
+	int *buff_a, *buff_b, *b;
+
+	if(myrank==0){
+		mat_a=new int*[n];
+		mat_b=new int*[n];
+		buff_a=new int[n*n];
+		buff_b=new int[n*n];
+		for(i=0;i<n;i++){
+			mat_a[i]= buff_a + (i*n);
+			mat_b[i]= buff_b + (i*n);
+		}		
+		genmatrix(mat_a,n);
+		genmatrix(mat_b,n);
+		//mat_c = serial_multiply(mat_a, mat_b, n);
+		//printmatrix(mat_a,n);
+		//printmatrix(mat_c,n);
+		//printmatrix(mat_b,n);
+		//printbuffer(buff,n);
+		//printvector(b,n);
+	}
+
+	
+	int process=sqrt(nprocs);
+	int col=(int)ceil((double)n/process);
+	int *local_a=new int[col*col];	
+	int *local_b=new int[col*col];
+	int *recv_buff=new int[col*col];
+	
+	scatter_matrix(buff_a,local_a,process,n,col,myrank,nprocs);
+	scatter_matrix(buff_b,local_b,process,n,col,myrank,nprocs);
+	
+	/*if(myrank==8){
+		//cout<<cords[0]<<" "<<cords[1]<<endl;
+		printvector(local_a, col*col);
+	}*/
+
+	/*if(myrank==4){	
+		printvector(local_b, col*col);
+	}*/
+
+	int *partial=new int[col*col];
+	for(i=0;i<col*col;i++){
+		partial[i]=0;
+	}
+	
+	initial_leftshift(local_a, recv_buff, process, col, cords, row_rank, row_comm);
+	MPI_Barrier(row_comm);
+	cout<<"L";
+	initial_upshift(local_b, recv_buff, process, col, cords, col_rank, col_comm);
+	cout<<"U";
+	multiply(local_a, local_b, partial, col);
+	cout<<"X";
+
+	//MPI_Barrier(row_comm);
+	//MPI_Barrier(col_comm);
+
+	/*if(myrank==4){
+		printvector(local_a, col*col);
+		printvector(local_b, col*col);
+		printvector(partial, col*col);
+		cout<<"\n";
+	}*/
+
+	for(i=1;i<process;i++){
+		leftshift(local_a, process, col, cords, row_rank, row_comm);
+		upshift(local_b, process, col, cords, col_rank, col_comm);
+		multiply(local_a, local_b, partial, col);
+		//MPI_Barrier(row_comm);
+		//MPI_Barrier(col_comm);
+	}
+
+	/*if(myrank==14){
+		printvector(local_a, col*col);
+		printvector(local_b, col*col);
+		printvector(partial, col*col);
+	}*/
+		
+	data_accumulation(partial, col, mat_a, myrank, process, nprocs);
+
+	/*if(myrank==0){
+		printmatrix(mat_a, n);
+	}*/
+	
+	MPI_Finalize();
+	return 0;
+}
+	
+	
+	
+	
+	
