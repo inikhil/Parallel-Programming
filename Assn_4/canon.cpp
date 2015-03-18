@@ -287,7 +287,7 @@ int main(int argc, char **argv){
 	MPI_Comm_rank(col_comm, &col_rank);
 	MPI_Comm_rank(row_comm, &row_rank);
 
-	int n=1000,i,j,temp;
+	int n = 1000,i,j,temp;
 	int **mat_a, **mat_b, **mat_c;
 	int *buff_a, *buff_b, *b;
 
