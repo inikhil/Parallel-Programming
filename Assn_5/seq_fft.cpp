@@ -139,8 +139,8 @@ int main(){
 		b[i] = 0;
 	}
 
-	//print(a, n);
-	//print(b, n);
+	print(a, n);
+	print(b, n);
 
 	double complex *y = new double complex[2*n];
 	double complex *z = new double complex[2*n];
@@ -155,7 +155,7 @@ int main(){
 		y[i] = y[i] / (2 * n) ;
 	}	
 
-	//print_real_complex(y, 2*n);
+	print_real_complex(y, 2*n);
 	//print_complex(y, 2*n);
 
 	return 0;

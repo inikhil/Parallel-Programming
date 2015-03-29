@@ -1,8 +1,11 @@
+/* User+Sys will tell us how much actual CPU time our process used. Note that this is across all CPUs, so if the process has multiple threads it could potentially exceed the wall clock time reported by Real. */ 
+
 #include <iostream>
 #include <cstdio>
 #include <cmath>
 #include <cstdlib>
 #include <complex.h>
+#include <omp.h>
 
 
 using namespace std;
@@ -67,10 +70,16 @@ double complex* inverse_recursive_fft(double complex *a, int n){
 	for(i=1;i<=n/2;i++){
 		c[i-1]=a[2*i-1];
 	}
-
-	y0 = inverse_recursive_fft(b, n/2); 
-	y1 = inverse_recursive_fft(c, n/2);
-
+	
+	#pragma omp task shared(y0)
+	{
+		y0 = inverse_recursive_fft(b, n/2);
+	}
+	#pragma omp task shared(y1)
+	{ 
+		y1 = inverse_recursive_fft(c, n/2);
+	}
+	#pragma omp taskwait
   	for(k=0; k<n/2; k++){
 		y[k] = y0[k] + w*y1[k];
 		y[k+n/2] = y0[k] - w*y1[k];
@@ -111,8 +120,16 @@ double complex* recursive_fft(int *a,int n){
 		c[i-1]=a[2*i-1];
 	}
 
-	y0 = recursive_fft(b, n/2); 
-	y1 = recursive_fft(c, n/2);
+	#pragma omp task shared(y0)
+	{
+		y0 = recursive_fft(b, n/2);
+	}
+	#pragma omp task shared(y1)
+	{ 
+		y1 = recursive_fft(c, n/2);
+	}
+	#pragma omp taskwait
+
   	for(k=0; k<n/2; k++){
 		y[k] = y0[k] + w*y1[k];
 		y[k+n/2] = y0[k] - w*y1[k];
@@ -123,39 +140,52 @@ double complex* recursive_fft(int *a,int n){
  
 int main(){
 
-	int n, i, j;
-	cin>>n;
+	int n, i, t;
+	cin>>t;
+
+	n=1;
+	while(n < t){
+		n = n*2;
+	}
 
 	int *a=new int[2*n];
 	int *b=new int[2*n];
 
-	for(i=0; i<n; i++){
+	for(i=0; i<t; i++){
 		a[i] = rand()%10;
 		b[i] = rand()%10;
 	}
 	
-	for(i=n; i<2*n; i++){
+	for(i=t; i<2*n; i++){
 		a[i] = 0;
 		b[i] = 0;
 	}
 
-	//print(a, n);
-	//print(b, n);
+	//print(a, t);
+	//print(b, t);
 
 	double complex *y = new double complex[2*n];
 	double complex *z = new double complex[2*n];
-	y = recursive_fft(a, 2*n);
-	z = recursive_fft(b, 2*n);
-	//print_complex(y, 2*n);
+
+	#pragma omp task shared(y)
+	{
+		y = recursive_fft(a, 2*n);
+	}
+	#pragma omp task shared(z)
+	{
+		z = recursive_fft(b, 2*n);
+	}
+		//print_complex(y, 2*n);
+	#pragma omp taskwait
 
 	y = multiply(y, z, 2*n);
 	y = inverse_recursive_fft(y, 2*n);	
 	
 	for(i=0; i<2*n; i++){
 		y[i] = y[i] / (2 * n) ;
-	}	
+	}
 
-	//print_real_complex(y, 2*n);
+	//print_real_complex(y, 2*t);
 	//print_complex(y, 2*n);
 
 	return 0;
