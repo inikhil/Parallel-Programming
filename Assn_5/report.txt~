@@ -1,0 +1,105 @@
+                                                   Discrete fourier Transform
+													     Nikhil Agarwal
+													     Roll: 11012323
+--------------------------------------------------------------------------------------------------------------------------------------------
+														   Introduction
+
+Polynomial multiplication takes O(n^2) time usins simple two for loop algorithm. So, DFT algorithm is designed where two polynomials are represented by point representation method and then after multiplying them they are converted to polynomial representation again. An attempt is made to understand the complexity and efficiency of such an algorithm.
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+														     Algorithm 
+
+Steps followed: 
+
+1. First take two polynomials as input. The coefficients of the poynomial are stored in an array.
+
+2. Then, convert the polynomials into point representation. We have implemented a function recursive_fft which takes as input the
+   polynomial and outputs it's point representation form. The function is a recursive functions which find the y values for n roots of
+   unity.
+
+3. Once, we have the point representation we multiply the y values for similar x values. 
+
+4. Lastly, we convert the point representation into polynomial representation again. For this we have implemented a function
+   inverse_recursive_fft which takes input in the point form and outputs the polynomial form in the form of array.
+
+Points to Note:
+
+1. Since we require n roots of unity, we have to deal with complex numbers so we have included a header file <complex.h>
+
+2. Since we have used openmp for multithreading we have included a header file <openmp.h>
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+                                                    Theoretical Analysis of Algorithm
+
+1. First step takes O(n) time since we just input our array.
+
+2. For converting to point representation, we require O(nlogn) time. Since the recursive function is called (logn) times and each time we
+   have to deal with (n) amount of data so in total it takes O(nlogn) time.
+
+3. For multiplying we require O(n) time.
+
+4. We again require O(nlogn) to convert to polynomial representation by similar logic as described in 2.
+
+Therefore, in total we require O(nlogn) time. So if we proceed in parallel we can finish it in O(n) time.
+
+-------------------------------------------------------------------------------------------------------------------------------------------- 
+
+                                                       Program Analysis
+
+     n          Sequentaial Algorithm           DFT based sequential Algorithm                Multithreaded DFT Algorithm
+
+				real    user      sys             real        user        sys                 real        user         sys 
+
+	10          0.701   0.002     0.002           0.711      0.002        0.002               0.761		  0.003        0.003         
+
+	100         0.864   0.002     0.002           0.937      0.004        0.003               1.125       0.005        0.003 
+
+	500         0.950   0.007     0.002           0.964      0.008        0.003               0.970       0.010        0.004          
+
+	1000        1.248   0.015     0.002           1.185      0.013        0.005               1.003       0.014        0.005   
+
+	2000        1.552   0.036     0.002           1.379      0.021        0.006               1.373       0.023        0.007
+
+	5000        1.454   0.200     0.003           1.483      0.066        0.019               1.245       0.069        0.019
+
+    10000       2.599   0.766     0.003           1.948      0.124        0.036               1.400		  0.129        0.036
+
+	20000       4.382   3.031     0.006           1.712      0.248		  0.069               1.541       0.253        0.068
+
+	50000      20.723   18.959    0.088           2.769      0.498        0.136               2.246       0.523        0.134
+
+	100000       -       -         -              3.144      1.015        0.264               2.754       1.050        0.262
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+                                                     Experimental Analysis
+
+We know thar User+Sys tells us how much actual CPU time our process used. Note that this is across all CPUs, so if the process has multiple threads it could potentially exceed the wall clock time reported by Real. So,
+
+1. For smaller values of n CPU time is almost same for both sequential as well as DFT based sequential algorithm but CPU time is more for
+   mulithreaded algorithm because of the overhead due to more number of threads.
+
+2. As the value of n increases CPU time for DFT sequential is quite small compared to general sequential algorithm but it is almost similar
+   to that of mulithreaded one. The reason being the multithreaded user time is the sum of time taken across all the processing units. So,
+   we compare real time in such case and we can clearly see the real time for mutithreaded is quite less that of DFT based sequential.
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+														 Conclusion
+
+DFT algorithm is quite efficient compared to the polynomial one. Further using multithreaded programming on DFT algorithm makes it more
+efficient.
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+  
+
+
+
+ 
+
+														
