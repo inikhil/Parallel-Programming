@@ -124,7 +124,7 @@ double complex* recursive_fft(int *a,int n){
 int main(){
 
 	int n, i, j, t;
-	cin>>t;
+	t = 100;
 
 	n=1;
 	while(n < t){

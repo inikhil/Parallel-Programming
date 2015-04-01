@@ -124,7 +124,7 @@ double complex* recursive_fft(int *a,int n){
 int main(){
 
 	int n, i, j, t;
-	cin>>t;
+	t = 10000;
 
 	n=1;
 	while(n < t){
@@ -144,8 +144,8 @@ int main(){
 		b[i] = 0;
 	}
 
-	print(a, t);
-	print(b, t);
+	//print(a, t);
+	//print(b, t);
 
 	double complex *y = new double complex[2*n];
 	double complex *z = new double complex[2*n];
@@ -160,7 +160,7 @@ int main(){
 		y[i] = y[i] / (2 * n) ;
 	}	
 
-	print_real_complex(y, 2*t);
+	//print_real_complex(y, 2*t);
 	//print_complex(y, 2*n);
 
 	return 0;

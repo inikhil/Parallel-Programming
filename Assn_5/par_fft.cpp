@@ -1,4 +1,3 @@
-/* User+Sys will tell us how much actual CPU time our process used. Note that this is across all CPUs, so if the process has multiple threads it could potentially exceed the wall clock time reported by Real. */ 
 
 #include <iostream>
 #include <cstdio>

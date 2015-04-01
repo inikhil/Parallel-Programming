@@ -1,4 +1,3 @@
-/* User+Sys will tell us how much actual CPU time our process used. Note that this is across all CPUs, so if the process has multiple threads it could potentially exceed the wall clock time reported by Real. */ 
 
 #include <iostream>
 #include <cstdio>
@@ -70,18 +69,19 @@ double complex* inverse_recursive_fft(double complex *a, int n){
 	for(i=1;i<=n/2;i++){
 		c[i-1]=a[2*i-1];
 	}
-	#pragma omp parallel sections num_threads(4)
+	#pragma omp parallel
 	{
-		#pragma omp section
+		#pragma omp task shared(y0)
 		{
 			y0 = inverse_recursive_fft(b, n/2);
 		}
-		#pragma omp section
+		#pragma omp task shared(y1)
 		{ 
 			y1 = inverse_recursive_fft(c, n/2);
 		}
 		#pragma omp barrier
 	}
+	//#pragma omp taskwait
 	//#pragma omp barrier
   	for(k=0; k<n/2; k++){
 		y[k] = y0[k] + w*y1[k];
@@ -123,18 +123,19 @@ double complex* recursive_fft(int *a,int n){
 	for(i=1;i<=n/2;i++){
 		c[i-1]=a[2*i-1];
 	}
-	#pragma omp parallel sections num_threads(4)
+	#pragma omp parallel
 	{
-		#pragma omp section
+		#pragma omp task shared(y0)
 		{
 			y0 = recursive_fft(b, n/2);
 		}
-		#pragma omp section
-		{ 
+		#pragma omp task shared(y1)
+		{	 
 			y1 = recursive_fft(c, n/2);
 		}
 		#pragma omp barrier
 	}
+	//#pragma omp taskwait
 	//#pragma omp barrier
 
   	for(k=0; k<n/2; k++){
@@ -148,7 +149,7 @@ double complex* recursive_fft(int *a,int n){
 int main(){
 
 	int n, i, t, th_id, nthreads;
-	t = 100;
+	t = 1000000;
 
 	n=1;
 	while(n < t){
@@ -174,27 +175,17 @@ int main(){
 	double complex *y = new double complex[2*n];
 	double complex *z = new double complex[2*n];
 
-	#pragma omp parallel sections num_threads(4)
+	#pragma omp parallel sections num_threads(16)
 	{
-
-		//th_id = omp_get_thread_num();
-		//nthreads = omp_get_num_threads();
-		//cout<<th_id<<" "<<nthreads<<endl;
 		#pragma omp section
 		{
-			//cout<<th_id<<" "<<nthreads<<endl;
 			y = recursive_fft(a, 2*n);
 		}
-
 		#pragma omp section
 		{
-			//th_id = omp_get_thread_num();
-			//nthreads = omp_get_num_threads();
-			//cout<<th_id<<" "<<nthreads<<endl;
 			z = recursive_fft(b, 2*n);
 		}
 		#pragma omp barrier
-		//print_complex(y, 2*n);
 	}
 
 	y = multiply(y, z, 2*n);

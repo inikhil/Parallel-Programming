@@ -1,4 +1,3 @@
-/* User+Sys will tell us how much actual CPU time our process used. Note that this is across all CPUs, so if the process has multiple threads it could potentially exceed the wall clock time reported by Real. */ 
 
 #include <iostream>
 #include <cstdio>
@@ -70,16 +69,19 @@ double complex* inverse_recursive_fft(double complex *a, int n){
 	for(i=1;i<=n/2;i++){
 		c[i-1]=a[2*i-1];
 	}
-	
-	#pragma omp task shared(y0)
+	#pragma omp parallel sections num_threads(4)
 	{
-		y0 = inverse_recursive_fft(b, n/2);
+		#pragma omp section
+		{
+			y0 = inverse_recursive_fft(b, n/2);
+		}
+		#pragma omp section
+		{ 
+			y1 = inverse_recursive_fft(c, n/2);
+		}
+		#pragma omp barrier
 	}
-	#pragma omp task shared(y1)
-	{ 
-		y1 = inverse_recursive_fft(c, n/2);
-	}
-	#pragma omp taskwait
+	//#pragma omp barrier
   	for(k=0; k<n/2; k++){
 		y[k] = y0[k] + w*y1[k];
 		y[k+n/2] = y0[k] - w*y1[k];
@@ -94,6 +96,7 @@ double complex* inverse_recursive_fft(double complex *a, int n){
 double complex* recursive_fft(int *a,int n){
 
 	int k, i;
+	int th_id, nthreads;
 	if(n == 1){
 		double complex *y = new double complex[n];
 		double complex z = a[0];
@@ -112,25 +115,26 @@ double complex* recursive_fft(int *a,int n){
 	double complex *y1 = new double complex[n/2];
 	double complex *y = new double complex[n];
 
-	#pragma omp parallel for shared(b,i,a)
 	for(i=0; i<n/2; i++){
 		b[i]=a[i*2];
 	}
 	
-	#pragma omp parallel for shared(c,i,a)
 	for(i=1;i<=n/2;i++){
 		c[i-1]=a[2*i-1];
 	}
-
-	#pragma omp task shared(y0)
+	#pragma omp parallel sections num_threads(4)
 	{
-		y0 = recursive_fft(b, n/2);
+		#pragma omp section
+		{
+			y0 = recursive_fft(b, n/2);
+		}
+		#pragma omp section
+		{ 
+			y1 = recursive_fft(c, n/2);
+		}
+		#pragma omp barrier
 	}
-	#pragma omp task shared(y1)
-	{ 
-		y1 = recursive_fft(c, n/2);
-	}
-	#pragma omp taskwait
+	//#pragma omp barrier
 
   	for(k=0; k<n/2; k++){
 		y[k] = y0[k] + w*y1[k];
@@ -142,8 +146,8 @@ double complex* recursive_fft(int *a,int n){
  
 int main(){
 
-	int n, i, t;
-	cin>>t;
+	int n, i, t, th_id, nthreads;
+	t = 100;
 
 	n=1;
 	while(n < t){
@@ -157,39 +161,49 @@ int main(){
 		a[i] = rand()%10;
 		b[i] = rand()%10;
 	}
-
-	#pragma omp parallel for shared(a,i,b)	
+	
 	for(i=t; i<2*n; i++){
 		a[i] = 0;
 		b[i] = 0;
 	}
 
-	print(a, t);
-	print(b, t);
+	//print(a, t);
+	//print(b, t);
 
 	double complex *y = new double complex[2*n];
 	double complex *z = new double complex[2*n];
 
-	#pragma omp task shared(y)
+	#pragma omp parallel sections num_threads(4)
 	{
-		y = recursive_fft(a, 2*n);
-	}
-	#pragma omp task shared(z)
-	{
-		z = recursive_fft(b, 2*n);
-	}
+
+		//th_id = omp_get_thread_num();
+		//nthreads = omp_get_num_threads();
+		//cout<<th_id<<" "<<nthreads<<endl;
+		#pragma omp section
+		{
+			//cout<<th_id<<" "<<nthreads<<endl;
+			y = recursive_fft(a, 2*n);
+		}
+
+		#pragma omp section
+		{
+			//th_id = omp_get_thread_num();
+			//nthreads = omp_get_num_threads();
+			//cout<<th_id<<" "<<nthreads<<endl;
+			z = recursive_fft(b, 2*n);
+		}
+		#pragma omp barrier
 		//print_complex(y, 2*n);
-	#pragma omp taskwait
+	}
 
 	y = multiply(y, z, 2*n);
 	y = inverse_recursive_fft(y, 2*n);	
-
-	#pragma omp parallel for shared(y,i)	
+	
 	for(i=0; i<2*n; i++){
 		y[i] = y[i] / (2 * n) ;
 	}
 
-	print_real_complex(y, 2*t);
+	//print_real_complex(y, 2*t);
 	//print_complex(y, 2*n);
 
 	return 0;
