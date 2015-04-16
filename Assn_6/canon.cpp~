@@ -113,6 +113,7 @@ void scatter_matrix(int *buff, int *local, int process,int n, int col, int rank,
 
 void initial_leftshift(int *local,int *recv_buff, int process, int col, int cords[2], int row_rank, MPI_Comm row_comm){
 
+	int i;
 	int left = cords[1] - cords[0];
 	if(left < 0){
 		left = left + process;
@@ -130,15 +131,15 @@ void initial_leftshift(int *local,int *recv_buff, int process, int col, int cord
 			MPI_Recv(recv_buff, col*col, MPI_INT, right, right_tag, row_comm, &status);
 			MPI_Send(local, col*col, MPI_INT, left, left_tag, row_comm);
 		}
-		int *temp;
-		temp=recv_buff;
-		recv_buff=local;
-		local=temp;
+		for(i=0; i< col * col; i++){
+			local[i] = recv_buff[i];
+		} 
 	}
 }
 
 void initial_upshift(int *local,int *recv_buff, int process, int col, int cords[2], int col_rank, MPI_Comm col_comm){
 
+	int i;
 	int up = cords[0] - cords[1];
 	if(up < 0){
 		up = up + process;
@@ -156,15 +157,16 @@ void initial_upshift(int *local,int *recv_buff, int process, int col, int cords[
 			MPI_Recv(recv_buff, col*col, MPI_INT, down, down_tag, col_comm, &status);
 			MPI_Send(local, col*col, MPI_INT, up, up_tag, col_comm);
 		}
-		int *temp;
-		temp=recv_buff;
-		recv_buff=local;
-		local=temp;
+		for(i=0; i< col * col; i++){
+			local[i] = recv_buff[i];
+		} 
 	}
+	
 }
 
 void leftshift(int *local, int *recv_buff, int process, int col, int cords[2], int row_rank, MPI_Comm row_comm){
 
+	int i;
 	int left = cords[1] - 1;
 	if(left < 0){
 		left = left + process;
@@ -181,16 +183,16 @@ void leftshift(int *local, int *recv_buff, int process, int col, int cords[2], i
 		MPI_Recv(recv_buff, col*col, MPI_INT, right, right_tag, row_comm, &status);
 		MPI_Send(local, col*col, MPI_INT, left, left_tag, row_comm);
 	}
-		
-	int *temp;
-	temp=recv_buff;
-	recv_buff=local;
-	local=temp;
+	for(i=0; i< col * col; i++){
+		local[i] = recv_buff[i];
+	} 	
+	
 
 }
 
 void upshift(int *local, int *recv_buff, int process, int col, int cords[2], int col_rank, MPI_Comm col_comm){
 
+	int i;
 	int up = cords[0] - 1;
 	if(up < 0){
 		up = up + process;
@@ -207,11 +209,9 @@ void upshift(int *local, int *recv_buff, int process, int col, int cords[2], int
 		MPI_Recv(recv_buff, col*col, MPI_INT, down, down_tag, col_comm, &status);	
 		MPI_Send(local, col*col, MPI_INT, up, up_tag, col_comm);
 	}
-
-	int *temp;
-	temp=recv_buff;
-	recv_buff=local;
-	local=temp;
+	for(i=0; i< col * col; i++){
+		local[i] = recv_buff[i];
+	} 
 	
 }
 
@@ -334,6 +334,13 @@ int main(int argc, char **argv){
 		printvector(local_b, col*col);
 	}*/
 
+	/*if(myrank==5){
+		printvector(local_a, col*col);
+		printvector(local_b, col*col);
+		//printvector(partial, col*col);
+		cout<<"\n";
+	}*/
+
 	int *partial=new int[col*col];
 	for(i=0;i<col*col;i++){
 		partial[i]=0;
@@ -346,7 +353,7 @@ int main(int argc, char **argv){
 	//MPI_Barrier(row_comm);
 	//MPI_Barrier(col_comm);
 
-	/*if(myrank==4){
+	/*if(myrank==5){
 		printvector(local_a, col*col);
 		printvector(local_b, col*col);
 		printvector(partial, col*col);

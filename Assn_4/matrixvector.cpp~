@@ -150,7 +150,7 @@ int main(int argc, char **argv){
 	MPI_Comm_rank(col_comm, &col_rank);
 	MPI_Comm_rank(row_comm, &row_rank);
 
-	int n=100,i,j,temp;
+	int n=12,i,j,temp;
 	int **mat;
 	int *buff,*b;
 
@@ -230,10 +230,10 @@ int main(int argc, char **argv){
 		MPI_Gather(finall,col,MPI_INT,final_output,col,MPI_INT,0,col_comm);
 	}
 	
-	if(cords[0]==0 && cords[1]==0){
+	/*if(cords[0]==0 && cords[1]==0){
 		//cout<<"Printing: ";
 		printvector(final_output,col*process);
-	}
+	}*/
 
 	MPI_Finalize();
 	return 0;
